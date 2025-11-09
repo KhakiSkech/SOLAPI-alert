@@ -1,0 +1,22 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Leads collection - Admin only
+    match /leads/{leadId} {
+      allow read: if false;  // Disable public read
+      allow write: if false; // Disable public write
+      // Access only through Firebase Admin SDK from Cloud Functions
+    }
+
+    // Processed webhooks collection - Admin only
+    match /processed_webhooks/{webhookId} {
+      allow read: if false;
+      allow write: if false;
+    }
+
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

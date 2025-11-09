@@ -1,0 +1,19 @@
+# Firebase App Hosting configuration
+# https://firebase.google.com/docs/app-hosting/configure
+
+runConfig:
+  # Resource configuration
+  minInstances: 0
+  maxInstances: 10
+  concurrency: 80
+  cpu: 1
+  memoryMiB: 512
+  timeoutSeconds: 60
+
+  # Environment variables
+  environmentVariables:
+    NODE_ENV: production
+    SOLAPI_API_URL: https://api.solapi.com
+    ENABLE_FIRESTORE_LOGGING: "true"
+    ENABLE_DEDUPLICATION: "true"
+    NEXT_PUBLIC_APP_NAME: "Verdi SOLAPI Notification Server"
