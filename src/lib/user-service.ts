@@ -47,6 +47,27 @@ export async function getApiKeys(
 }
 
 /**
+ * 특정 플랫폼의 API 키 삭제
+ */
+export async function deleteApiKeys(
+  userId: string,
+  platform: 'meta' | 'google' | 'tiktok' | 'kakao'
+): Promise<void> {
+  const docRef = firestore
+    .collection('users')
+    .doc(userId)
+    .collection('apiKeys')
+    .doc('config');
+
+  // Firestore 필드 삭제
+  const updateData: any = {};
+  updateData[platform] = firestore.FieldValue.delete();
+  updateData.updatedAt = new Date();
+
+  await docRef.update(updateData);
+}
+
+/**
  * 웹훅 토큰 생성 또는 조회
  */
 export async function getOrCreateWebhookTokens(

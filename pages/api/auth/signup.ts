@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { auth } from '@/lib/firebase-admin';
 import { createUser } from '@/lib/user-service';
+import { checkRateLimit, getClientIdentifier, RateLimitPresets } from '@/lib/rate-limit';
 import type { ApiResponse } from '@/types';
 
 interface SignupRequest {
@@ -17,6 +18,21 @@ export default async function handler(
     return res.status(405).json({
       success: false,
       error: 'Method not allowed',
+      timestamp: Date.now(),
+    });
+  }
+
+  // Rate limiting
+  const clientId = getClientIdentifier(req);
+  const rateLimit = checkRateLimit(clientId, {
+    ...RateLimitPresets.AUTH,
+    keyPrefix: 'signup',
+  });
+
+  if (!rateLimit.success) {
+    return res.status(429).json({
+      success: false,
+      error: 'Too many signup attempts. Please try again later.',
       timestamp: Date.now(),
     });
   }

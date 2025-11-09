@@ -14,7 +14,8 @@ import type {
 } from '@/types';
 import { getRawBody } from '@/lib/utils';
 import { SolapiClient } from '@/lib/solapi-client';
-import { getApiKeysByToken } from '@/lib/user-service';
+import { getApiKeysByToken, getUserIdByToken } from '@/lib/user-service';
+import { logWebhook } from '@/lib/webhook-logger';
 import crypto from 'crypto';
 
 /**
@@ -146,7 +147,8 @@ async function handleLeadSubmission(
           await processLead(
             change.value.leadgen_id,
             change.value.page_id,
-            apiKeys
+            apiKeys,
+            userToken
           );
         }
       }
@@ -200,7 +202,8 @@ function validateMetaSignature(
 async function processLead(
   leadId: string,
   pageId: string,
-  apiKeys: ApiKeysConfig
+  apiKeys: ApiKeysConfig,
+  userToken: string
 ): Promise<void> {
   console.log(`🔄 Processing Meta lead: ${leadId}`);
 
@@ -214,9 +217,36 @@ async function processLead(
     // Send notifications using user's SOLAPI
     await sendNotifications(transformedLead, apiKeys);
 
+    // Log successful webhook processing
+    const userId = await getUserIdByToken(userToken);
+    if (userId) {
+      await logWebhook({
+        userId,
+        platform: 'meta',
+        leadId,
+        status: 'success',
+        phoneNumber: transformedLead.phone,
+        timestamp: new Date(),
+      });
+    }
+
     console.log(`✅ Meta lead processed successfully: ${leadId}`);
   } catch (error) {
     console.error(`❌ Error processing lead ${leadId}:`, error);
+
+    // Log failed webhook processing
+    const userId = await getUserIdByToken(userToken);
+    if (userId) {
+      await logWebhook({
+        userId,
+        platform: 'meta',
+        leadId,
+        status: 'failed',
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date(),
+      });
+    }
+
     throw error;
   }
 }

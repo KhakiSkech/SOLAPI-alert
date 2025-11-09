@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { auth } from '@/lib/firebase-admin';
-import { saveApiKeys, getApiKeys } from '@/lib/user-service';
+import { saveApiKeys, getApiKeys, deleteApiKeys } from '@/lib/user-service';
+import { checkRateLimit, getClientIdentifier, RateLimitPresets } from '@/lib/rate-limit';
 import type { ApiResponse, ApiKeysConfig } from '@/types';
 
 /**
@@ -27,6 +28,21 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<ApiResponse>
 ) {
+  // Rate limiting
+  const clientId = getClientIdentifier(req);
+  const rateLimit = checkRateLimit(clientId, {
+    ...RateLimitPresets.API,
+    keyPrefix: 'apikeys',
+  });
+
+  if (!rateLimit.success) {
+    return res.status(429).json({
+      success: false,
+      error: 'Too many requests. Please try again later.',
+      timestamp: Date.now(),
+    });
+  }
+
   // 사용자 인증
   const userId = await getUserIdFromRequest(req);
   if (!userId) {
@@ -103,6 +119,54 @@ export default async function handler(
       return res.status(500).json({
         success: false,
         error: 'Failed to save API keys',
+        timestamp: Date.now(),
+      });
+    }
+  }
+
+  // DELETE: API 키 삭제
+  if (req.method === 'DELETE') {
+    try {
+      const { platform } = req.query;
+
+      if (!platform || typeof platform !== 'string') {
+        return res.status(400).json({
+          success: false,
+          error: 'Platform parameter is required',
+          timestamp: Date.now(),
+        });
+      }
+
+      const validPlatforms = ['meta', 'google', 'tiktok', 'kakao'];
+      if (!validPlatforms.includes(platform)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid platform. Must be: meta, google, tiktok, or kakao',
+          timestamp: Date.now(),
+        });
+      }
+
+      // SOLAPI는 삭제 불가 (필수 항목)
+      if (platform === 'solapi') {
+        return res.status(400).json({
+          success: false,
+          error: 'Cannot delete SOLAPI configuration (required)',
+          timestamp: Date.now(),
+        });
+      }
+
+      await deleteApiKeys(userId, platform as 'meta' | 'google' | 'tiktok' | 'kakao');
+
+      return res.status(200).json({
+        success: true,
+        data: { message: `${platform} API keys deleted successfully` },
+        timestamp: Date.now(),
+      });
+    } catch (error: any) {
+      console.error('Failed to delete API keys:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to delete API keys',
         timestamp: Date.now(),
       });
     }

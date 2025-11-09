@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signInWithCustomToken,
+  sendEmailVerification,
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase-client';
 
@@ -40,7 +42,16 @@ export default function LoginPage() {
         }
 
         // Custom token으로 로그인
-        await signInWithCustomToken(auth, result.data.customToken);
+        const userCredential = await signInWithCustomToken(auth, result.data.customToken);
+
+        // 이메일 인증 메일 발송
+        try {
+          await sendEmailVerification(userCredential.user);
+          console.log('Verification email sent');
+        } catch (verifyError) {
+          console.error('Failed to send verification email:', verifyError);
+        }
+
         router.push('/dashboard');
       } else {
         // 로그인
@@ -145,19 +156,29 @@ export default function LoginPage() {
             </button>
           </div>
 
-          <div className="text-center">
-            <button
-              type="button"
-              onClick={() => {
-                setIsSignup(!isSignup);
-                setError('');
-              }}
-              className="text-sm text-indigo-600 hover:text-indigo-500"
-            >
-              {isSignup
-                ? '이미 계정이 있으신가요? 로그인'
-                : '계정이 없으신가요? 회원가입'}
-            </button>
+          <div className="flex items-center justify-between">
+            <div className="text-sm">
+              {!isSignup && (
+                <Link
+                  href="/forgot-password"
+                  className="font-medium text-indigo-600 hover:text-indigo-500"
+                >
+                  비밀번호를 잊으셨나요?
+                </Link>
+              )}
+            </div>
+            <div className="text-sm">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSignup(!isSignup);
+                  setError('');
+                }}
+                className="font-medium text-indigo-600 hover:text-indigo-500"
+              >
+                {isSignup ? '로그인' : '회원가입'}
+              </button>
+            </div>
           </div>
         </form>
       </div>
